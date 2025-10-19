@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 #from .mcp_server import mcp_server
-from .neo4j_client import run_cypher
+#from .neo4j_client import run_cypher
 
 app = FastAPI(title="MCP Graph Service")
 
