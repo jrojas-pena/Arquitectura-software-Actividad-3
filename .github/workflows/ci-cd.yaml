@@ -10,7 +10,7 @@ on:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}/mcp-graph-svc
-  CONTEXT: services/mcp-graph-svc
+  CONTEXT: mcp-graph/services/mcp-graph-svc
 
 jobs:
   build-and-push:
@@ -52,10 +52,10 @@ jobs:
       - name: Update helm values tag to commit SHA
         run: |
           IMAGE_TAG=${GITHUB_SHA}
-          sed -i "s#tag: \".*\"#tag: \"${IMAGE_TAG}\"#g" charts/mcp-graph-svc/values.yaml
+          sed -i "s#tag: \".*\"#tag: \"${IMAGE_TAG}\"#g" mcp-graph/charts/mcp-graph-svc/values.yaml
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add charts/mcp-graph-svc/values.yaml
+          git add mcp-graph/charts/mcp-graph-svc/values.yaml
           git commit -m "bump image tag to ${IMAGE_TAG}" || echo "no changes"
           git push || true
 
