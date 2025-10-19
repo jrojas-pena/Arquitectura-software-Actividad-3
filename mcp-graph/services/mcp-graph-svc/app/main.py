@@ -6,7 +6,7 @@ app = FastAPI(title="MCP Graph Service")
 
 @app.get("/healthz")
 def healthz():
-    return {"status": "ok"}
+    return {"status": "ok", "message": "Nueva version 0.1.7"}
  
 # Opcional: endpoint REST de prueba (sin MCP)
 #@app.post("/chat")
