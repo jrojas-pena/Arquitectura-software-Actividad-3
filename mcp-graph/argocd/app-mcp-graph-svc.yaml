@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/jrojas-pena/Arquitectura-software-Actividad-3
     targetRevision: main
-    path: charts/mcp-graph-svc
+    path: mcp-graph/charts/mcp-graph-svc
     helm:
       valueFiles:
         - values.yaml
