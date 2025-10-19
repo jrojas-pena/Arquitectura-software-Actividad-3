@@ -264,9 +264,3 @@ Deberías ver:
 
 ---
 
-## 🧾 Créditos
-
-**Autor:** Juan Rojas Peña  
-**Universidad de La Sabana — Maestría en Ingeniería de Software**  
-**Actividad 3: Diseño e implementación de arquitecturas de software modernas (K8s + CI/CD)**  
-**Año:** 2025  
