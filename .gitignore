@@ -137,6 +137,30 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+=======
+# =========================================
+# 🧠 MCP Graph Project .gitignore
+# Python + FastAPI + Docker + Helm + ArgoCD
+# =========================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.pdb
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+wheels/
+pip-wheel-metadata/
+*.log
+
+# --- Virtual environments ---
+.env
 .venv
 env/
 venv/
@@ -205,3 +229,77 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+=======
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
+
+# --- Docker ---
+*.pid
+*.seed
+*.bak
+*.orig
+*.tmp
+*.old
+docker-compose.override.yml
+.env.docker
+*.tar
+*.img
+
+# --- Minikube & Kubernetes ---
+.kube/
+minikube/
+*.crt
+*.key
+*.kubeconfig
+*.kube/
+*.yaml~
+*.yml~
+*.bak
+
+# --- Helm ---
+charts/*/charts/
+charts/*/tmpcharts/
+charts/*/requirements.lock
+charts/*/values-*.yaml
+*.tgz
+
+# --- ArgoCD generated configs ---
+argocd/.cache/
+argocd/.argocd-source/
+*.sync-status
+*.revisions
+
+# --- CI/CD ---
+.github/workflows/*.tmp
+.github/actions/*.log
+.github/.cache/
+*.coverage
+coverage.xml
+
+# --- Logs ---
+logs/
+*.log
+nohup.out
+*.out
+
+# --- Misc ---
+*.sqlite3
+*.db
+__temp__/
+tmp/
+.cache/
+*.bak
+*.orig
+*.retry
+*.backup
+*.local
+*.envrc
