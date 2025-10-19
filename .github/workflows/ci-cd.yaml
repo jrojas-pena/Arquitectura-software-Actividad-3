@@ -3,8 +3,8 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - "services/mcp-graph-svc/**"
-      - "charts/mcp-graph-svc/**"
+      - "mcp-graph/services/mcp-graph-svc/**"
+      - "mcp-graph/charts/mcp-graph-svc/**"
       - ".github/workflows/ci-cd.yaml"
   workflow_dispatch:
 
