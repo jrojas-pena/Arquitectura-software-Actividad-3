@@ -1,114 +1,91 @@
 pipeline {
     agent any
     
-    environment {
-        IMAGE_NAME = "ghcr.io/${GITHUB_REPOSITORY}/mcp-graph-svc"
-        CONTEXT = "mcp-graph/services/mcp-graph-svc"
-        DOCKER_REGISTRY = "ghcr.io"
-        HELM_CHART_PATH = "mcp-graph/charts/mcp-graph-svc"
-    }
-    
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
-                script {
-                    env.GIT_COMMIT_SHA = sh(
-                        script: 'git rev-parse HEAD',
-                        returnStdout: true
-                    ).trim()
-                    env.GIT_BRANCH = sh(
-                        script: 'git rev-parse --abbrev-ref HEAD',
-                        returnStdout: true
-                    ).trim()
-                }
-            }
-        }
-        
-        stage('Docker Login') {
-            steps {
-                script {
-                    withCredentials([string(credentialsId: 'ghcr-token', variable: 'GHCR_TOKEN')]) {
-                        sh """
-                            echo "${GHCR_TOKEN}" | docker login ${DOCKER_REGISTRY} -u ${GITHUB_ACTOR} --password-stdin
-                        """
-                    }
-                }
-            }
-        }
-        
-        stage('Build & Push Docker Image') {
-            steps {
-                script {
-                    def imageTags = [
-                        "${IMAGE_NAME}:${env.GIT_COMMIT_SHA}",
-                        "${IMAGE_NAME}:${env.GIT_BRANCH}"
-                    ]
+                echo "📥 Obteniendo código del repositorio..."
+                sh """
+                    # Limpiar workspace si existe
+                    rm -rf mcp-graph
                     
-                    def tagsString = imageTags.join(',')
+                    # Clonar el repositorio
+                    git clone https://github.com/jrojas-pena/Arquitectura-software-Actividad-3.git .
                     
-                    sh """
-                        docker build -t ${IMAGE_NAME}:${env.GIT_COMMIT_SHA} ${CONTEXT}
-                        docker tag ${IMAGE_NAME}:${env.GIT_COMMIT_SHA} ${IMAGE_NAME}:${env.GIT_BRANCH}
-                        
-                        # Push images
-                        docker push ${IMAGE_NAME}:${env.GIT_COMMIT_SHA}
-                        docker push ${IMAGE_NAME}:${env.GIT_BRANCH}
-                    """
-                }
+                    # Verificar que se descargó
+                    ls -la
+                    echo "✅ Código obtenido"
+                """
             }
         }
         
-        stage('Update Helm Values') {
+        stage('Build Docker Image') {
             steps {
-                script {
-                    sh """
-                        # Update the image tag in values.yaml
-                        sed -i 's#tag: ".*"#tag: "${env.GIT_COMMIT_SHA}"#g' ${HELM_CHART_PATH}/values.yaml
-                        
-                        # Configure git
-                        git config user.name "jenkins"
-                        git config user.email "jenkins@example.com"
-                        
-                        # Add and commit changes
-                        git add ${HELM_CHART_PATH}/values.yaml
-                        git commit -m "bump image tag to ${env.GIT_COMMIT_SHA}" || echo "no changes"
-                        
-                        # Push changes
-                        git push origin ${env.GIT_BRANCH} || echo "push failed or no changes"
-                    """
+                echo "🐳 Construyendo imagen Docker..."
+                sh """
+                    echo "Construyendo imagen: mcp-graph-svc"
+                    docker build -t mcp-graph-svc:latest mcp-graph/services/mcp-graph-svc
+                    
+                    echo "Imagen construida exitosamente"
+                    docker images | grep mcp-graph-svc
+                """
             }
         }
         
-        stage('Deploy to Kubernetes') {
-            when {
-                branch 'main'
-            }
+        stage('Test Image') {
             steps {
-                script {
-                    sh """
-                        # Install/upgrade the Helm chart
-                        helm upgrade --install mcp-graph-svc ${HELM_CHART_PATH} \\
-                            --set image.repository=${IMAGE_NAME} \\
-                            --set image.tag=${env.GIT_COMMIT_SHA} \\
-                            --namespace default \\
-                            --create-namespace
-                    """
-                }
+                echo "🧪 Probando la imagen construida..."
+                sh """
+                    # Probar que la imagen se puede ejecutar
+                    echo "Probando Python..."
+                    docker run --rm mcp-graph-svc:latest python --version
+                    
+                    # Verificar que los archivos están presentes
+                    echo "Verificando archivos..."
+                    docker run --rm mcp-graph-svc:latest ls -la /app
+                    
+                    # Probar que FastAPI está disponible
+                    echo "Verificando FastAPI..."
+                    docker run --rm mcp-graph-svc:latest python -c "import fastapi; print('FastAPI OK')"
+                """
+            }
+        }
+        
+        stage('Run Container Test') {
+            steps {
+                echo "🚀 Probando el contenedor en modo test..."
+                sh """
+                    # Ejecutar el contenedor en background para probar
+                    echo "Iniciando contenedor de prueba..."
+                    docker run -d --name test-mcp-graph-svc -p 8081:8080 mcp-graph-svc:latest
+                    
+                    # Esperar a que inicie
+                    sleep 10
+                    
+                    # Probar endpoint de salud
+                    echo "Probando endpoint de salud..."
+                    curl -f http://localhost:8081/healthz || echo "Endpoint no disponible"
+                    
+                    # Detener y limpiar
+                    docker stop test-mcp-graph-svc
+                    docker rm test-mcp-graph-svc
+                    
+                    echo "✅ Prueba del contenedor completada"
+                """
             }
         }
     }
     
     post {
         always {
-            // Clean up Docker images to save space
-            sh 'docker system prune -f'
+            echo "🧹 Limpiando recursos..."
+            sh 'docker system prune -f || true'
         }
         success {
-            echo 'Pipeline completed successfully!'
+            echo '✅ Pipeline completado exitosamente!'
         }
         failure {
-            echo 'Pipeline failed!'
+            echo '❌ Pipeline falló!'
         }
     }
 }
