@@ -1,115 +1,91 @@
 pipeline {
     agent any
-    
+
     environment {
-        IMAGE_NAME = "mcp-graph-svc"
-        CONTEXT = "mcp-graph/services/mcp-graph-svc"
+        REGISTRY = "ghcr.io"
+        IMAGE_NAME = "jrojas-pena/arquitectura-software-actividad-3/mcp-graph-svc"
+        VERSION = "0.1.${BUILD_NUMBER}"
+        GITHUB_TOKEN = credentials('ghcr-token')   // 🔐 ID de la credencial en Jenkins
     }
-    
+
     stages {
-        stage('Get Git Info') {
+        stage('Checkout') {
             steps {
-                echo "📥 Obteniendo información del repositorio..."
-                script {
-                    env.GIT_COMMIT_SHA = sh(
-                        script: 'git rev-parse HEAD',
-                        returnStdout: true
-                    ).trim()
-                    env.GIT_BRANCH = sh(
-                        script: 'git rev-parse --abbrev-ref HEAD',
-                        returnStdout: true
-                    ).trim()
-                }
-                echo "✅ Información obtenida - Commit: ${env.GIT_COMMIT_SHA}"
-            }
-        }
-        
-        stage('Build Docker Image') {
-            steps {
-                echo "🐳 Construyendo imagen Docker..."
-                script {
-                    def imageTag = "${IMAGE_NAME}:${env.GIT_COMMIT_SHA}"
-                    def imageTagLatest = "${IMAGE_NAME}:latest"
-                    
-                    sh """
-                        echo "Construyendo imagen: ${imageTag}"
-                        docker build -t ${imageTag} ${CONTEXT}
-                        docker tag ${imageTag} ${imageTagLatest}
-                        
-                        echo "Imagen construida exitosamente"
-                        docker images | grep ${IMAGE_NAME}
-                    """
-                }
-            }
-        }
-        
-        stage('Test Image') {
-            steps {
-                echo "🧪 Probando la imagen construida..."
-                script {
-                    sh """
-                        # Probar que la imagen se puede ejecutar
-                        echo "Probando Python..."
-                        docker run --rm ${IMAGE_NAME}:${env.GIT_COMMIT_SHA} python --version
-                        
-                        # Verificar que los archivos están presentes
-                        echo "Verificando archivos..."
-                        docker run --rm ${IMAGE_NAME}:${env.GIT_COMMIT_SHA} ls -la /app
-                        
-                        # Probar que FastAPI está disponible
-                        echo "Verificando FastAPI..."
-                        docker run --rm ${IMAGE_NAME}:${env.GIT_COMMIT_SHA} python -c "import fastapi; print('FastAPI OK')"
-                    """
-                }
-            }
-        }
-        
-        stage('Run Container Test') {
-            steps {
-                echo "🚀 Probando el contenedor en modo test..."
-                script {
-                    sh """
-                        # Ejecutar el contenedor en background para probar
-                        echo "Iniciando contenedor de prueba..."
-                        docker run -d --name test-${IMAGE_NAME} -p 8081:8080 ${IMAGE_NAME}:${env.GIT_COMMIT_SHA}
-                        
-                        # Esperar a que inicie
-                        sleep 10
-                        
-                        # Probar endpoint de salud
-                        echo "Probando endpoint de salud..."
-                        curl -f http://localhost:8081/healthz || echo "Endpoint no disponible"
-                        
-                        # Detener y limpiar
-                        docker stop test-${IMAGE_NAME}
-                        docker rm test-${IMAGE_NAME}
-                        
-                        echo "✅ Prueba del contenedor completada"
-                    """
-                }
-            }
-        }
-    }
-    
-    post {
-        always {
-            echo "🧹 Limpiando recursos..."
-            sh 'docker system prune -f || true'
-        }
-        success {
-            echo '✅ Pipeline completado exitosamente!'
-            script {
                 sh """
-                    echo "📊 Resumen del build:"
-                    echo "  - Imagen: ${IMAGE_NAME}:${env.GIT_COMMIT_SHA}"
-                    echo "  - Branch: ${env.GIT_BRANCH}"
-                    echo "  - Commit: ${env.GIT_COMMIT_SHA}"
-                    echo "  - Estado: ✅ EXITOSO"
+                    rm -rf Arquitectura-software-Actividad-3
+                    
+                    git clone https://github.com/jrojas-pena/Arquitectura-software-Actividad-3.git Arquitectura-software-Actividad-3
+                    
+                    ls -la
+                    echo "✅ Código obtenido"
                 """
             }
         }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    echo "🐳 Construyendo imagen Docker..."
+                    sh """
+                    docker build -t ${REGISTRY}/${IMAGE_NAME}:${VERSION} Arquitectura-software-Actividad-3/mcp-graph/services/mcp-graph-svc
+                    """
+                }
+            }
+        }
+
+        stage('Login to GHCR') {
+            steps {
+               withCredentials([string(credentialsId: 'ghcr-token', variable: 'TOKEN')]) {
+                     sh '''
+                     echo "$TOKEN" | docker login ghcr.io -u jrojas-pena --password-stdin
+                     '''
+                }
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                script {
+                    echo "🚀 Publicando imagen en GHCR..."
+                    sh """
+                    docker push ${REGISTRY}/${IMAGE_NAME}:${VERSION}
+                    """
+                }
+            }
+        }
+
+        stage('Update Helm Values (Infra Repo)') {
+            steps {
+                script {
+                    echo "📝 Actualizando values.yaml en el repositorio de infraestructura..."
+                    sh """
+                    rm -rf infra
+                    git clone git@github.com:jrojas-pena/arquitectura-software-actividad3-infra.git infra
+                    cd infra/mcp-graph/charts/mcp-graph-svc
+                    sed -i 's/tag:.*/tag: "${VERSION}"/' values.yaml
+                    git config user.name "jenkins"
+                    git config user.email "jenkins@local"
+                    git add values.yaml
+                    git commit -m "Actualiza versión ${VERSION} desde Jenkins"
+                    git push origin main || true
+                    """
+                }
+            }
+        }
+
+        stage('Post Info') {
+            steps {
+                echo "✅ Imagen publicada: ${REGISTRY}/${IMAGE_NAME}:${VERSION}"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "🎉 Pipeline completado exitosamente."
+        }
         failure {
-            echo '❌ Pipeline falló!'
+            echo "❌ Hubo un error durante la ejecución del pipeline."
         }
     }
 }
